@@ -1,3 +1,11 @@
-theme: jekyll-theme-minimal
+theme: minima
 title: Scaling Pains
 description: Documenting my journey through the jax scaling book
+baseurl: ""
+url: "https://arjuns238.github.io"
+collections:
+  posts:
+    output: true
+    permalink: /:categories/:year/:month/:day/:title/
+header_pages:
+  - about.md
