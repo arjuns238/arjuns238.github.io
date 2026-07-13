@@ -38,7 +38,7 @@ One thing I appreciated was how the chapter systematically derives the four ways
 
 Distributed matrix multiplication boils down to four sharding cases.
 
-<B> 1\. No sharding along the contracting dimension </B>
+#### 1\. No sharding along the contracting dimension
 
 Each device has all the data it needs, so the multiplication can be performed locally with **no communication**.
 
@@ -48,10 +48,9 @@ $$
 \mathbf{C}[I_X, K_Y]
 $$
 
-
 * * *
 
-<B> 2\. One input is sharded along the contracting dimension </B>
+#### 2\. One input is sharded along the contracting dimension
 
 The computation is
 
@@ -71,11 +70,13 @@ $$
 
 * * *
 
-<B> 3\. Both inputs are sharded along the contracting dimension </B>
+#### 3\. Both inputs are sharded along the contracting dimension
 
 Each device computes a partial result locally, and the partial outputs are summed with an **AllReduce** (or **ReduceScatter** if the output should remain sharded).
 
-$$\mathbf{A}[I, J_X] \cdot \mathbf{B}[J_X, K] \rightarrow \mathbf{C}_{\mathrm{partial}}[I, K]$$
+$$
+\mathbf{A}[I, J_X] \cdot \mathbf{B}[J_X, K] \rightarrow \mathbf{C}_{\mathrm{partial}}[I, K]
+$$
 
 Combine partial sums:
 
@@ -95,10 +96,12 @@ $$
 
 * * *
 
-<B> 4\. Both inputs are sharded along the non-contracting dimension </B>
+#### 4\. Both inputs are sharded along the non-contracting dimension
 
 One of the matrices must be redistributed before the multiplication can be performed efficiently.
 
-$$\mathbf{A}[I_X, J] \cdot \mathbf{B}[J, K_X] \rightarrow \mathbf{C}[I_X, K_X]$$
+$$
+\mathbf{A}[I_X, J] \cdot \mathbf{B}[J, K_X] \rightarrow \mathbf{C}[I_X, K_X]
+$$
 
 AllGather one of the dimensions
