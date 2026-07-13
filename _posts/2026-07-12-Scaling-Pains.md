@@ -48,61 +48,61 @@ Distributed matrix multiplication boils down to four sharding cases.
 
    Each device has all the data it needs, so the multiplication can be performed locally with **no communication**.
 
-   \[
+   $$
    \mathbf{A}[I_X, J] \cdot \mathbf{B}[J, K_Y]
    \rightarrow
    \mathbf{C}[I_X, K_Y]
-   \]
+   $$
 
 2. One input is sharded along the contracting dimension
 
    The computation is
 
-   \[
+   $$
    \mathbf{A}[I, J_X] \cdot \mathbf{B}[J, K_Y]
    \rightarrow
    \mathbf{C}[I, K_Y]
-   \]
+   $$
 
    Before this can happen, we first perform an AllGather:
 
-   \[
+   $$
    \mathbf{A}[I, J]
    =
    \mathrm{AllGather}_X(\mathbf{A}[I, J_X])
-   \]
+   $$
 
 3. Both inputs are sharded along the contracting dimension
 
    Each device computes a partial result locally, and the partial outputs are summed with an **AllReduce** (or **ReduceScatter** if the output should remain sharded).
 
-   \[
+   $$
    \mathbf{A}[I, J_X] \cdot \mathbf{B}[J_X, K] \rightarrow \mathbf{C}_{\mathrm{partial}}[I, K]
-   \]
+   $$
 
    Combine partial sums:
 
-   \[
+   $$
    \mathbf{C}[I, K]
    =
    \mathrm{AllReduce}(\mathbf{C}_{\mathrm{partial}})
-   \]
+   $$
 
    or, if the output remains sharded:
 
-   \[
+   $$
    \mathbf{C}[I_X, K]
    =
    \mathrm{ReduceScatter}(\mathbf{C}_{\mathrm{partial}})
-   \]
+   $$
 
 4. Both inputs are sharded along the non-contracting dimension
 
    One of the matrices must be redistributed before the multiplication can be performed efficiently.
 
-   \[
+   $$
    \mathbf{A}[I_X, J] \cdot \mathbf{B}[J, K_X] \rightarrow \mathbf{C}[I_X, K_X]
-   \]
+   $$
 
    AllGather one of the dimensions and then perform the matrix multiply.
 
@@ -118,49 +118,49 @@ Terms like data parallelism, tensor parallelism, pipeline parallelism, and FSDP 
 
 Here are the 4 parallelism schemes discussed in this section. Each scheme can be thought of as uniquely defined by a sharding for `In`, `W_in`, `W_out`, and `Out`.
 
-### Data Parallelism (DP)
+1. **Data Parallelism (DP)**
 
-Activations are sharded along the batch dimension, while parameters and optimizer state are replicated on each device.
+   Activations are sharded along the batch dimension, while parameters and optimizer state are replicated on each device.
 
-\[
-\text{In}[B_X, D] \cdot_D W_{\text{in}}[D, F] \cdot_F W_{\text{out}}[F, D] \rightarrow \text{Out}[B_X, D]
-\]
+   $$
+   \text{In}[B_X, D] \cdot_D W_{\text{in}}[D, F] \cdot_F W_{\text{out}}[F, D] \rightarrow \text{Out}[B_X, D]
+   $$
 
-### Fully-Sharded Data Parallelism (FSDP / ZeRO-3)
+2. **Fully-Sharded Data Parallelism (FSDP / ZeRO-3)**
 
-Activations are sharded along the batch dimension, like pure data parallelism. Parameters are sharded along the same mesh axis. Optimizer state is also sharded along the batch dimension. This reduces duplicated memory.
+   Activations are sharded along the batch dimension, like pure data parallelism. Parameters are sharded along the same mesh axis. Optimizer state is also sharded along the batch dimension. This reduces duplicated memory.
 
-\[
-\text{In}[B_X, D] \cdot_D W_{\text{in}}[D_X, F] \cdot_F W_{\text{out}}[F, D_X] \rightarrow \text{Out}[B_X, D]
-\]
+   $$
+   \text{In}[B_X, D] \cdot_D W_{\text{in}}[D_X, F] \cdot_F W_{\text{out}}[F, D_X] \rightarrow \text{Out}[B_X, D]
+   $$
 
-### Tensor Parallelism (Megatron Sharding)
+3. **Tensor Parallelism (Megatron Sharding)**
 
-Activations are sharded along \(D\) (\(d_{\text{model}}\)), and parameters are sharded along \(F\) (\(d_{ff}\)).
+   Activations are sharded along $D$ ($d_{\text{model}}$), and parameters are sharded along $F$ ($d_{ff}$).
 
-\[
-\text{In}[B, D_Y] \cdot_D W_{\text{in}}[D, F_Y] \cdot_F W_{\text{out}}[F_Y, D] \rightarrow \text{Out}[B, D_Y]
-\]
+   $$
+   \text{In}[B, D_Y] \cdot_D W_{\text{in}}[D, F_Y] \cdot_F W_{\text{out}}[F_Y, D] \rightarrow \text{Out}[B, D_Y]
+   $$
 
-### Pipeline Parallelism (PP)
+4. **Mixed Parallelism**
 
-Weights are sharded along the layer dimension, and activations are microbatched and rolled along the layer dimension. Communication between pipeline stages is minimal — just moving activations over a single hop.
+    Modern frontier models usually combine all of these techniques.
 
-\[
-\text{In}[L_Z, B, D][i] \cdot_D W_{\text{in}}[L_Z, D, F][i] \cdot_F W_{\text{out}}[L_Z, F, D][i] \rightarrow \text{Out}[L_Z, B, D][i]
-\]
 
-### Mixed Parallelism
+    Syntax:
 
-Modern frontier models usually combine all of these techniques.
+    $$
+    \text{In}[B_X, D_Y] \cdot_D W_{\text{in}}[D_X, F_Y] \cdot_F W_{\text{out}}[F_Y, D_X] \rightarrow \text{Out}[B_X, D_Y]
+    $$
+   
 
-**Combining FSDP and Tensor Parallelism**
+5. **Pipeline Parallelism**
 
-Syntax:
+   Weights are sharded along the layer dimension, and activations are microbatched and rolled along the layer dimension. Communication between pipeline stages is minimal — just moving activations over a single hop.
 
-\[
-\text{In}[B_X, D_Y] \cdot_D W_{\text{in}}[D_X, F_Y] \cdot_F W_{\text{out}}[F_Y, D_X] \rightarrow \text{Out}[B_X, D_Y]
-\]
+   $$
+   \text{In}[L_Z, B, D][i] \cdot_D W_{\text{in}}[L_Z, D, F][i] \cdot_F W_{\text{out}}[L_Z, F, D][i] \rightarrow \text{Out}[L_Z, B, D][i]
+   $$
 
 ### Takeaways: The Different Ways to Shard a Transformer
 
