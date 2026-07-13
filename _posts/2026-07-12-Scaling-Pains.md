@@ -44,70 +44,64 @@ One thing I appreciated was how the chapter systematically derives the four ways
 
 Distributed matrix multiplication boils down to four sharding cases.
 
-#### 1\. No sharding along the contracting dimension
+1. No sharding along the contracting dimension
 
-Each device has all the data it needs, so the multiplication can be performed locally with **no communication**.
+   Each device has all the data it needs, so the multiplication can be performed locally with **no communication**.
 
-$$
-\mathbf{A}[I_X, J] \cdot \mathbf{B}[J, K_Y]
-\rightarrow
-\mathbf{C}[I_X, K_Y]
-$$
+   $$
+   \mathbf{A}[I_X, J] \cdot \mathbf{B}[J, K_Y]
+   \rightarrow
+   \mathbf{C}[I_X, K_Y]
+   $$
 
-* * *
+2. One input is sharded along the contracting dimension
 
-#### 2\. One input is sharded along the contracting dimension
+   The computation is
 
-The computation is
+   $$
+   \mathbf{A}[I, J_X] \cdot \mathbf{B}[J, K_Y]
+   \rightarrow
+   \mathbf{C}[I, K_Y]
+   $$
 
-$$
-\mathbf{A}[I, J_X] \cdot \mathbf{B}[J, K_Y]
-\rightarrow
-\mathbf{C}[I, K_Y]
-$$
+   Before this can happen, we first perform an AllGather:
 
-Before this can happen, we first perform an AllGather:
+   $$
+   \mathbf{A}[I, J]
+   =
+   \mathrm{AllGather}_X(\mathbf{A}[I, J_X])
+   $$
 
-$$
-\mathbf{A}[I, J]
-=
-\mathrm{AllGather}_X(\mathbf{A}[I, J_X])
-$$
+3. Both inputs are sharded along the contracting dimension
 
-* * *
+   Each device computes a partial result locally, and the partial outputs are summed with an **AllReduce** (or **ReduceScatter** if the output should remain sharded).
 
-#### 3\. Both inputs are sharded along the contracting dimension
+   $$
+   \mathbf{A}[I, J_X] \cdot \mathbf{B}[J_X, K] \rightarrow \mathbf{C}_{\mathrm{partial}}[I, K]
+   $$
 
-Each device computes a partial result locally, and the partial outputs are summed with an **AllReduce** (or **ReduceScatter** if the output should remain sharded).
+   Combine partial sums:
 
-$$
-\mathbf{A}[I, J_X] \cdot \mathbf{B}[J_X, K] \rightarrow \mathbf{C}_{\mathrm{partial}}[I, K]
-$$
+   $$
+   \mathbf{C}[I, K]
+   =
+   \mathrm{AllReduce}(\mathbf{C}_{\mathrm{partial}})
+   $$
 
-Combine partial sums:
+   or, if the output remains sharded:
 
-$$
-\mathbf{C}[I, K]
-=
-\mathrm{AllReduce}(\mathbf{C}_{\mathrm{partial}})
-$$
+   $$
+   \mathbf{C}[I_X, K]
+   =
+   \mathrm{ReduceScatter}(\mathbf{C}_{\mathrm{partial}})
+   $$
 
-or, if the output remains sharded:
+4. Both inputs are sharded along the non-contracting dimension
 
-$$
-\mathbf{C}[I_X, K]
-=
-\mathrm{ReduceScatter}(\mathbf{C}_{\mathrm{partial}})
-$$
+   One of the matrices must be redistributed before the multiplication can be performed efficiently.
 
-* * *
+   $$
+   \mathbf{A}[I_X, J] \cdot \mathbf{B}[J, K_X] \rightarrow \mathbf{C}[I_X, K_X]
+   $$
 
-#### 4\. Both inputs are sharded along the non-contracting dimension
-
-One of the matrices must be redistributed before the multiplication can be performed efficiently.
-
-$$
-\mathbf{A}[I_X, J] \cdot \mathbf{B}[J, K_X] \rightarrow \mathbf{C}[I_X, K_X]
-$$
-
-AllGather one of the dimensions and then perform the matrix multiply.
+   AllGather one of the dimensions and then perform the matrix multiply.
