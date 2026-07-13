@@ -1,4 +1,4 @@
-theme: jekyll-theme-cayman
+theme: minima
 title: Scaling Pains
 description: Documenting my journey through the jax scaling book
 baseurl: ""
@@ -11,5 +11,15 @@ collections:
   posts:
     output: true
     permalink: /:categories/:year/:month/:day/:title/
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: post
+  - scope:
+      path: ""
+    values:
+      layout: page
 header_pages:
   - about.md

@@ -1,4 +1,10 @@
-![alt text](image.png)
+---
+title: "Scaling Pains"
+date: 2026-07-12 10:00:00 +0000
+categories: [scaling]
+---
+
+![Scaling Pains]({{ '/assets/images/scaling-pains.png' | relative_url }})
 
 I'd say I understand how LLMs work. I've trained models, built machine learning systems and read many of the foundational papers. But over the last few years, models have grown from something that could fit on a single GPU to systems trained across thousands of accelerators.
 
