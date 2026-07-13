@@ -17,4 +17,3 @@ This site is now set up to publish posts written in Markdown. Add a new file und
 </ul>
 {% endraw %}
 
-If your new post doesn't appear immediately on GitHub Pages, ensure the file is committed and pushed to the repository's default branch.
