@@ -171,3 +171,68 @@ Here are the 4 parallelism schemes discussed in this section. Each scheme can be
 | Tensor Parallelism | Matrix dimensions | All-reduce/all-gather activations |
 | Pipeline Parallelism | Transformer layers | Send activations between stages |
 | Mixed Parallelism | Combination of all above | Combination of collectives |
+
+## Part 6: Training LLaMA 3 on TPUs
+
+Everything from Parts 1-5 - rooflines, communication primitives, the four parallelism schemes - gets pointed at a single, concrete target: training LLaMA 3-70B on a TPU v5p pod. I think this is the section that made everything else click, because instead of reasoning about generic matrices `A[I_X, J]` I was plugging in real numbers for a model I already knew existed and had used.
+
+It was also the first time the book made me curious about a model's architecture for its own sake rather than as a vehicle for a sharding exercise. Once you've counted up LLaMA's parameters by hand and watched how lopsided the distribution is toward the MLP block, you start wondering how that compares to other model families - what Mixtral's MoE layers do to that ratio, how DeepSeek's MLA changes the attention parameter count, whether Gemini or Grok make different tradeoffs. That curiosity is really the best sign the earlier chapters actually landed.
+
+### Takeaways
+
+**Where LLaMA 3-70B parameters actually live:**
+
+| Component | Parameters | Share |
+|---|---|---|
+| MLP weights | 56.3B | ~80% |
+| Attention | 12B | ~17% |
+| Vocabulary embeddings | 2.1B | ~3% |
+
+
+Seeing how the parallelism strategies compare to a model the size of LLaMA was awesome. 
+
+## Part 7: Inference
+
+I hadn't fully appreciated how much there was to inference until this chapter. Training gets all the attention (pun intended), but serving turns out to have its own entirely separate set of bottlenecks, and prefill and generation behave nothing alike.
+
+Prefill is usually compute-bound, since prompts tend to be longer than ~240 tokens, which is enough to push the matmuls into the compute-bound regime of the roofline. Generation is the opposite story: attention is always memory-bandwidth-bound, since it has to read the entire KV cache for every single token generated, while the MLP can go either way depending on batch size - compute-bound if the batch is large enough to amortize weight loading, memory-bound if it isn't.
+
+### Takeaways
+
+The general formula for theoretical step time during generation:
+
+$$
+\begin{align} \tiny \text{Theoretical Step Time (General)} = \underbrace{\frac{\text{Batch Size} \times \text{KV Cache Size}}{\tiny \text{Total Memory Bandwidth}}}_{\text{Attention (always bandwidth-bound)}} + \underbrace{\max\left(\frac{2 \times \text{Batch Size} \times \text{Parameter Count}}{\text{Total FLOPs/s}}, \frac{\text{Parameter Size}}{\text{Total Memory Bandwidth}}\right)}_{\tiny \text{MLP (can be compute-bound)}} \end{align}
+$$
+
+Attention is a fixed bandwidth tax that scales with batch size and KV cache size - there's no way around reading the whole cache every step. The MLP term is a max of a compute term and a memory term, so it's compute-bound once batch size is large enough that $\frac{2 \times \text{Batch Size} \times \text{Parameter Count}}{\text{Total FLOPs/s}}$ exceeds $\frac{\text{Parameter Size}}{\text{Total Memory Bandwidth}}$, and memory-bound otherwise.
+
+This also finally explained why so much recent model design - MQA, GQA, MLA, sliding window attention, and so on - is really all pointed at the same target: shrinking the KV cache. Since attention is always bandwidth-bound on the cache, cutting its size is one of the few direct levers on generation latency.
+
+## Part 8: Serving LLaMA on TPUs
+
+Short section, but a nice one - same flavor as Part 6, taking Part 7's formulas and grounding them in LLaMA. Working through KV cache size, batch size, and latency/throughput tradeoffs for a real model made the theory feel concrete again after the abstraction of Part 7.
+
+## Part 9: Profiling JAX Code
+
+This one was a bigger learning curve than the theory itself, since I was coming into it as a JAX beginner. Reading about rooflines and sharding is one thing; actually profiling code and matching what I saw to those concepts was another.
+
+The tooling ended up being half the battle. TensorBoard profiling is natively supported in Colab, but Colab had dropped v5e-8 support, so I had to move to Kaggle instead - where TensorBoard isn't native. That meant every single profile was a manual round trip: capture a trace, download it, upload it to Perfetto to actually view it. Tedious, but it forced me to get comfortable poking around traces by hand instead of leaning on a nicely integrated viewer, which was probably good for me in the end.
+
+## Part 10: Programming JAX
+
+This was the hardest part of the whole book for me. JAX is a genuinely different beast, and getting comfortable thinking functionally instead of imperatively took real time. Some of the questions I just sat with for a while before anything clicked - but once the answers came, they came sweet.
+
+By the end, I was actually comfortable with JAX, which wasn't true going in. The standout exercise was building a fully sharded MoE layer - it forced me to pull together sharding, communication primitives, and parallelism strategies from every earlier chapter and actually implement them, not just reason about them on paper. This section took the longest by a wide margin, but it's also the one I learned the most from.
+
+Part of getting comfortable was understanding JAX's three sharding modes. In **auto** mode, you just tell the compiler your input/output shardings and let XLA/Shardy figure out everything in between. In **explicit** mode, JAX itself (not the compiler) propagates sharding through each op and yells at you when it's ambiguous, so you get more visibility and safety than auto. In **manual** mode (`shard_map`), you get a fully device-local view of the program and write every piece of communication yourself.
+
+## Part 12: GPUs
+
+Admittedly I went through this one lightly, but it was interesting seeing GPUs and TPUs compared directly after spending the whole book thinking in TPU terms. The big difference is topology: GPUs connect in a hierarchical, fat-tree fashion - 8 GPUs per node over NVLink, then nodes stitched together over InfiniBand switches - while TPUs sit on a uniform 2D/3D torus where every chip just talks to its neighbors. That tree structure is also why GPU collectives are messier in practice, degrading well below peak bandwidth unless message sizes are large, whereas TPUs stay closer to their theoretical numbers by design.
+
+## Conclusion
+
+Start to end, this took me about two months. Some sections were genuinely hard, and I'd tell anyone going through this not to get demotivated if a chapter kicks your ass. That's kind of the point. I'm honestly very glad I went through the whole thing.
+
+As for what's next, I'm not really sure - there are so many directions this could lead. That's a good problem to have.

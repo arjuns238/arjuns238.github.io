@@ -1,6 +1,6 @@
 theme: minima
-title: Scaling Pains
-description: Documenting my journey through the jax scaling book
+title: Docs
+description: Blog for my projects and other stuff
 baseurl: ""
 url: "https://arjuns238.github.io"
 markdown: kramdown
