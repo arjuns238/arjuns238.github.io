@@ -16,3 +16,35 @@
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
+
+// Pill-style "view the code" button at the top of posts
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  margin: 4px 0 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  background: #f6f8fa;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+
+  &,
+  &:visited {
+    color: #24292f;
+    text-decoration: none;
+  }
+
+  &:hover {
+    background: #24292f;
+    border-color: #24292f;
+    color: #fff;
+    text-decoration: none;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
