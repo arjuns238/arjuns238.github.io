@@ -3,11 +3,6 @@ title: "\"It's Personal\" - Is Covert Value Leakage Mediated by a Preference Dir
 date: 2026-09-09 10:00:00 +0000
 categories: [interpretability]
 ---
-
-## Executive Summary
-
-### What problem am I trying to solve?
-
 [Value leakage](https://arxiv.org/abs/2607.14345) is when a model’s outputs are shaped by the model’s “values”. A simple example that illustrates this well is when a model is asked to choose between two leisure activities with a 50/50 chance but chooses one with a higher probability than the other.
 
 ![Example prompt: picking between a sculpture garden and a vape lounge "completely at random"]({{ '/assets/images/example-prompt.png' | relative_url }})
