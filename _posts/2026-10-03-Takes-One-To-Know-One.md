@@ -169,9 +169,6 @@ I didn't test any of these directly, so treat them as hypotheses.
 
 **Scale and method.** This is one model (Qwen3-14B), LoRA, one epoch, and supervised fine-tuning rather than RL. Forcing the answer to start with code is artificial, though it didn't change the untrained model's numbers.
 
-**What the graders actually learned.** The PASS-only result points to grading-style training in general, and part of the coding effect follows lost coding ability. I didn't rule out the simplest explanation, that grader training makes the model less obedient to system prompts. The writing result with *no* system prompt can't be explained that way, which is one reason I think the small out-of-domain effect is worth following up.
-
-
 **Future work.** In order of how directly each one tests the claim:
 1. **An explicit cheating instruction on the writing tasks** ("stuff in as many of the keywords as you can"). This is the true analogue of Experiment 2 outside coding, and it costs about one GPU-hour.
 2. **A corrupt judge.** I only trained graders that correctly fail hacks. Graders trained to *approve* hacks are the monitor-contamination case that motivated this project, and the place where imprinting is most likely to show up.
